@@ -1,0 +1,48 @@
+pipeline {
+    agent {
+        label 'master'
+    }
+    options {
+        timestamps ()
+    }
+    environment {
+        FRONTFOLDER = "/home/ubuntu/front"
+        SSHTOCONNECT = "ubuntu@34.222.107.139"
+    }
+    stages {
+        stage (clean) {
+            steps {
+                cleanWs()
+            }
+        }
+        stage ('pullig code') {
+            steps {
+                checkout([$class: 'GitSCM',
+                branches: [[name: '*/development']],
+                doGenerateSubmoduleConfigurations: false,
+                extensions: [], submoduleCfg: [],
+                userRemoteConfigs: [[credentialsId: 'front_xaka',
+                url: 'git@github.com:OlenaZaikina/hackathon_project.git']]])
+            }
+        }
+        stage ('front building') {
+            steps {
+                echo 'run an container'
+                sh 'docker run --rm -v $WORKSPACE:/xaka/ front3'
+            }
+        }
+        stage ('cleaning server') {
+            steps {
+                sh 'ssh $SSHTOCONNECT "rm -rf $FRONTFOLDER/build/"'
+            }
+        }
+        stage ('copy build to server') {
+            steps {
+                sh 'scp -r $WORKSPACE/build/ $SSHTOCONNECT:$FRONTFOLDER/'
+                sh 'ssh $SSHTOCONNECT "$FRONTFOLDER/frun.sh"'
+            }
+        }
+
+    }
+
+}

@@ -1,0 +1,42 @@
+pipeline {
+    agent {
+        label 'master'
+    }
+    options {
+        timestamps ()
+    }
+    environment {
+        BACKFOLDER = "/home/ubuntu/back"
+        SSHTOCONNECT = "ubuntu@34.222.107.139"
+    }
+    stages {
+        stage (clean) {
+            steps {
+                cleanWs()
+            }
+        }
+        stage ('pullig code') {
+            steps {
+                checkout([$class: 'GitSCM',
+                branches: [[name: '*/master']],
+                doGenerateSubmoduleConfigurations: false,
+                extensions: [], submoduleCfg: [],
+                userRemoteConfigs: [[credentialsId: 'xaka_back',
+                url: 'git@github.com:dokel13/goal-tracker.git']]])
+            }
+        }
+        stage ('backend building') {
+            steps {
+                withMaven(maven: 'mavenauto') {
+                    sh "mvn clean package"
+                }
+            }
+        }
+        stage ('copy build to server') {
+            steps {
+                sh 'scp $WORKSPACE/target/*war $SSHTOCONNECT:$BACKFOLDER/app.war'
+                sh 'ssh $SSHTOCONNECT "$BACKFOLDER/brun.sh"'
+            }
+        }
+    }
+}
